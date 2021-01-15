@@ -6,16 +6,16 @@ This tkinter application uses a GUI to get and display the top songs
 from www.billboard.com with links to the music videos on youtube.
 """
 
-import os
-from tkinter import *
-from tkinter import ttk
-import requests
-import webbrowser
-from bs4 import BeautifulSoup
+from spotipy.oauth2 import SpotifyClientCredentials
 from youtube_search import YoutubeSearch
 from PIL import ImageTk, Image
+from bs4 import BeautifulSoup
 from spotipy import Spotify
-from spotipy.oauth2 import SpotifyClientCredentials
+from tkinter import ttk
+from tkinter import *
+import webbrowser
+import requests
+import os
 
 
 class TopSongs:
@@ -30,7 +30,6 @@ class TopSongs:
     
     def __init__(self):
         self.num_songs = self.NUM_SONGS
-        self.top_songs = []
         self.sp_api = Spotify(client_credentials_manager=SpotifyClientCredentials())
         self.songs = self.get_top_songs()
         self.launcher = self.DEFAULT_LAUNCHER
@@ -43,6 +42,24 @@ class TopSongs:
         self.widgets = {}
         self.create_ui()
         
+    def get_top_songs(self):
+        """Request and return a number of the top songs from billboard.com."""
+        top_100 = requests.get('https://www.billboard.com/charts/hot-100')
+        try:
+            top_100.raise_for_status()
+        except requests.HTTPError:
+            return []
+        html = top_100.text
+        top_100.close()
+        # Parse HTML.
+        soup = BeautifulSoup(html, 'html.parser')
+        songs = []
+        for number, song in enumerate(soup.find_all('li', class_='chart-list__element')[:self.num_songs], 1):
+            name = song.find('span', class_='chart-element__information__song').text
+            artist = song.find('span', class_='chart-element__information__artist').text.replace('Featuring', 'ft.').replace(' x ', ', ').replace(' & ', ', ').replace(' X ', ', ')
+            songs.append({'number': number, 'name': name, 'artist': artist})
+        return songs
+    
     def create_ui(self):
         """Create static buttons and sections and add them to the GUI."""
         # Create widgets.
@@ -166,6 +183,32 @@ class TopSongs:
             
             self.widgets['song_frames'].append(song_frame)
     
+    def switch_launcher(self):
+        """Toggle song open method between website and app."""
+        button = self.widgets['launcher_btn']
+        
+        if self.launcher == 'app':
+            self.launcher = 'website'
+            btn_text = 'Spotify Website'
+        else:
+            self.launcher = 'app'
+            btn_text = 'Spotify App'
+            
+        button.configure(text=btn_text)
+    
+    def scroll_to_top(self):
+        canvas = self.widgets['canvas']
+        canvas.yview_scroll(-len(self.songs), 'units')
+    
+    def scroll(self, event):
+        """Scroll through songs."""
+        canvas = self.widgets['canvas']
+        # Event.delta will be either 120 or -120.
+        # By finding the sign of event.delta, the
+        # program can scroll the opposite direction.
+        sign = event.delta // abs(event.delta)
+        canvas.yview_scroll(-sign * self.SCROLL_SPEED, 'units')
+
     def number_btn_release(self, event):
         """LMB release event for song button."""
         button = event.widget
@@ -190,32 +233,6 @@ class TopSongs:
         if 0 < x < button.winfo_width() and 0 < y < button.winfo_height():
             self.open_music_video(button)
     
-    def switch_launcher(self):
-        """Toggle song open method between website and app."""
-        button = self.widgets['launcher_btn']
-        
-        if self.launcher == 'app':
-            self.launcher = 'website'
-            btn_text = 'Spotify Website'
-        else:
-            self.launcher = 'app'
-            btn_text = 'Spotify App'
-            
-        button.configure(text=btn_text)
-
-    def scroll(self, event):
-        """Scroll through songs."""
-        canvas = self.widgets['canvas']
-        # Event.delta will be either 120 or -120.
-        # By finding the sign of event.delta, the
-        # program can scroll the opposite direction.
-        sign = event.delta // abs(event.delta)
-        canvas.yview_scroll(-sign * self.SCROLL_SPEED, 'units')
-    
-    def scroll_to_top(self):
-        canvas = self.widgets['canvas']
-        canvas.yview_scroll(-100, 'units')
-    
     def button_hover(self, event):
         """Update hover_label with message."""
         button = event.widget
@@ -228,56 +245,17 @@ class TopSongs:
         hover_label = self.widgets['hover_label']
         hover_label.config(text='')
     
-    def get_top_songs(self):
-        """Request and return a number of the top songs from billboard.com."""
-        top_100 = requests.get('https://www.billboard.com/charts/hot-100')
-        try:
-            top_100.raise_for_status()
-        except requests.HTTPError:
-            return []
-        html = top_100.text
-        top_100.close()
-        # Parse HTML.
-        soup = BeautifulSoup(html, 'html.parser')
-        songs = []
-        for number, song in enumerate(soup.find_all('li', class_='chart-list__element')[:self.num_songs], 1):
-            name = song.find('span', class_='chart-element__information__song').text
-            artist = song.find('span', class_='chart-element__information__artist').text.replace('Featuring', 'ft.').replace(' x ', ', ').replace(' & ', ', ').replace(' X ', ', ')
-            songs.append({'number': number, 'name': name, 'artist': artist})
-        return songs
-    
-    @staticmethod
-    def get_real_artist(artist):
-        """Return an artist string with featured artists removed."""
-        if ' ft.' in artist:
-            return artist[:artist.find(' ft.')]
-        return artist
+    def open_song_chart(self, button):
+        """
+        Get song's number from the button that was pressed,
+        and open www.billboard.com/charts/hot-100 with that
+        song selected.
+        :param button: button that was pressed.
+        """
+        song = self.songs[button.x]
+        song_number = song['number']
+        webbrowser.open(f'https://www.billboard.com/charts/hot-100?rank={song_number}')
         
-    def open_music_video(self, button):
-        """
-        If a song's music video url has already been stored, open it.
-        If not, search for the song id and build and open the url.
-        :param button: button that was pressed
-        """
-        url = 'https://www.youtube.com'
-        # Button stores data key and song index.
-        key = button.data
-        i = button.index
-        song = self.songs[i]
-        try:
-            url = song[key]
-        except KeyError:
-            song_name = song['name']
-            artist = song['artist']
-            real_artist = self.get_real_artist(artist)
-            # Search for song using youtube_search and sift through dict to find desired data.
-            results = YoutubeSearch(f'{song_name} {real_artist}', max_results=1).to_dict()
-            video_id = results[0]['id']
-            url = f'https://www.youtube.com/watch?v={video_id}'
-            song['yt_url'] = url
-        finally:
-            webbrowser.open(url)
-    
     def open_spotify_uri(self, button):
         """
         If a song's URIs are already stored, open the desired one.
@@ -308,16 +286,37 @@ class TopSongs:
                 uri_type, uri_id = uri.split(':')[1], uri.split(':')[2]
                 webbrowser.open(f'https://open.spotify.com/{uri_type}/{uri_id}')
     
-    def open_song_chart(self, button):
+    def open_music_video(self, button):
         """
-        Get song's number from the button that was pressed,
-        and open www.billboard.com/charts/hot-100 with that
-        song selected.
-        :param button: button that was pressed.
+        If a song's music video url has already been stored, open it.
+        If not, search for the song id and build and open the url.
+        :param button: button that was pressed
         """
-        song = self.songs[button.x]
-        song_number = song['number']
-        webbrowser.open(f'https://www.billboard.com/charts/hot-100?rank={song_number}')
+        url = 'https://www.youtube.com'
+        # Button stores data key and song index.
+        key = button.data
+        i = button.index
+        song = self.songs[i]
+        try:
+            url = song[key]
+        except KeyError:
+            song_name = song['name']
+            artist = song['artist']
+            real_artist = self.get_real_artist(artist)
+            # Search for song using youtube_search and sift through dict to find desired data.
+            results = YoutubeSearch(f'{song_name} {real_artist}', max_results=1).to_dict()
+            video_id = results[0]['id']
+            url = f'https://www.youtube.com/watch?v={video_id}'
+            song['yt_url'] = url
+        finally:
+            webbrowser.open(url)
+    
+    @staticmethod
+    def get_real_artist(artist):
+        """Return an artist string with featured artists removed."""
+        if ' ft.' in artist:
+            return artist[:artist.find(' ft.')]
+        return artist
     
     def run(self):
         """Start app."""
