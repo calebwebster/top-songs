@@ -38,7 +38,7 @@ class TopSongs:
         self.root.title('Top Songs')
         self.images = {
             'youtube': ImageTk.PhotoImage(Image.open('youtube.png')),
-            'up_arrow': ImageTk.PhotoImage(Image.open('up_arrow.png').resize((26, 26))),
+            'up_arrow': ImageTk.PhotoImage(Image.open('up_arrow.png')),
         }
         self.widgets = {}
         self.create_ui()
