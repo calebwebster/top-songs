@@ -21,22 +21,24 @@ from spotipy.oauth2 import SpotifyClientCredentials
 class TopSongs:
     """Top Songs Tkinter Application."""
     
-    DEFAULT_NUM_SONGS = 10
+    NUM_SONGS = 100
     LARGE_FONT = ('Goldman', 22)
+    MEDIUM_FONT = ('Goldman', 10)
     SMALL_FONT = ('Sansation', 12)
-    SCROLL_SPEED = 30
+    SCROLL_SPEED = 1
+    DEFAULT_LAUNCHER = 'app'
     
     def __init__(self):
-        self.num_songs = self.DEFAULT_NUM_SONGS
+        self.num_songs = self.NUM_SONGS
         self.top_songs = []
         self.sp_api = Spotify(client_credentials_manager=SpotifyClientCredentials())
         self.songs = self.get_top_songs()
-        self.launcher = 'app'
+        self.launcher = self.DEFAULT_LAUNCHER
         self.root = Tk()
         self.root.title('Top Songs')
         self.images = {
-            'refresh': ImageTk.PhotoImage(Image.open('refresh.png')),
-            'youtube': ImageTk.PhotoImage(Image.open('youtube.png').resize((30, 30)))
+            'youtube': ImageTk.PhotoImage(Image.open('youtube.png')),
+            'up_arrow': ImageTk.PhotoImage(Image.open('up_arrow.png').resize((26, 26))),
         }
         self.widgets = {}
         self.create_ui()
@@ -46,25 +48,23 @@ class TopSongs:
         # Create widgets.
         top_frame = LabelFrame(self.root, bd=3, relief=SUNKEN)
         title = Label(top_frame, text='Top Songs', font=self.LARGE_FONT)
-        num_songs = Entry(top_frame, width=3, bd=3, font=self.SMALL_FONT)
-        refresh_btn = Button(top_frame, bd=3, image=self.images['refresh'], command=self.refresh)
-        launcher_btn = Button(top_frame, bd=3, text='Spotify App', font=self.SMALL_FONT, command=self.switch_launcher)
+        subtitle = Label(top_frame, text='by Caleb Webster', font=self.MEDIUM_FONT)
+        launcher_btn = Button(top_frame, width=13, bd=3, text='Spotify App', font=self.SMALL_FONT, command=self.switch_launcher)
+        scroll_top_btn = Button(top_frame, bd=3, image=self.images['up_arrow'], command=self.scroll_to_top)
         bottom_frame = LabelFrame(self.root, relief=SUNKEN)
-        hover_label = Label(bottom_frame, text='', font=self.SMALL_FONT, anchor=W)
+        hover_label = Label(bottom_frame, text='', font=self.SMALL_FONT, anchor=W, width=59)
         # Pack em' in.
         top_frame.grid(row=0, column=0, padx=5, pady=5, sticky=W+E)
-        title.grid(row=0, column=0, padx=75)
-        num_songs.grid(row=0, column=1, padx=0)
-        num_songs.insert(0, self.DEFAULT_NUM_SONGS)
-        refresh_btn.grid(row=0, column=2, padx=15)
-        launcher_btn.grid(row=0, column=3, padx=15)
+        title.grid(row=0, column=0, padx=15)
+        subtitle.grid(row=0, column=1, pady=(15, 0))
+        launcher_btn.grid(row=0, column=2, padx=(20, 0))
+        scroll_top_btn.grid(row=0, column=3, padx=15)
         bottom_frame.grid(row=2, column=0, padx=5, pady=5, sticky=W+E)
         hover_label.grid(row=0, column=0)
         # Add widgets to dict.
         self.widgets['top_frame'] = top_frame
         self.widgets['title'] = title
-        self.widgets['num_songs'] = num_songs
-        self.widgets['refresh_btn'] = refresh_btn
+        self.widgets['subtitle'] = subtitle
         self.widgets['launcher_btn'] = launcher_btn
         self.widgets['bottom_frame'] = bottom_frame
         self.widgets['hover_label'] = hover_label
@@ -83,12 +83,13 @@ class TopSongs:
             
         middle_frame_outer = LabelFrame(self.root, bd=3, relief=SUNKEN)
         # Behold, the process for creating a simple scrolling widget in Tkinter.
-        canvas = Canvas(middle_frame_outer, height=441)
+        canvas = Canvas(middle_frame_outer, height=460)
         scrollbar = ttk.Scrollbar(middle_frame_outer, orient=VERTICAL, command=canvas.yview)
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.bind('<Configure>', lambda event: canvas.configure(scrollregion=canvas.bbox('all')))
         middle_frame_inner = Frame(canvas)
-        self.root.bind_all('<MouseWheel>', self.scroll)
+        middle_frame_inner.bind('<MouseWheel>', self.scroll)
+        scrollbar.bind('<MouseWheel>', self.scroll)
         canvas.create_window((0, 0), window=middle_frame_inner, anchor=N + W)
 
         middle_frame_outer.grid(row=1, column=0, padx=5, pady=5, sticky=W + E)
@@ -118,6 +119,7 @@ class TopSongs:
             shortened_artist = song['artist'][:max_name_length + 1] + '...' if len(song['artist']) > max_name_length else song['artist']
             # Create inner frame and buttons for song name, artist, album cover, and music video.
             song_frame = LabelFrame(middle_frame_inner, bd=3, relief=RAISED)
+            number_btn = Button(song_frame, width=3, bd=0, text=str(song['number']) + '.', font=self.SMALL_FONT)
             name_btn = Button(song_frame, width=max_name_length, bd=0, text=shortened_name, padx=10, anchor=W, font=self.SMALL_FONT)
             artist_btn = Button(song_frame, width=max_artist_length + 5, bd=0, text=shortened_artist, padx=10, anchor=W, font=self.SMALL_FONT)
             youtube_btn = Button(song_frame, bd=0, image=self.images['youtube'])
@@ -125,32 +127,52 @@ class TopSongs:
             name_btn.data = 'song_uri'
             artist_btn.data = 'artist_uri'
             youtube_btn.data = 'yt_url'
+            number_btn.index = x
             name_btn.index = x
             artist_btn.index = x
             youtube_btn.index = x
             # Bind open functions to buttons.
+            number_btn.bind('<ButtonRelease-1>', self.number_btn_release)
             name_btn.bind('<ButtonRelease-1>', self.song_btn_release)
             artist_btn.bind('<ButtonRelease-1>', self.song_btn_release)
             youtube_btn.bind('<ButtonRelease-1>', self.yt_btn_release)
             # Add buttons and frame to bottom frame.
             song_frame.grid(row=x, column=0, padx=6, pady=3, sticky=W+E)
-            name_btn.grid(row=0, column=0)
-            artist_btn.grid(row=0, column=1)
+            number_btn.grid(row=0, column=0)
+            name_btn.grid(row=0, column=1)
+            artist_btn.grid(row=0, column=2)
             youtube_btn.grid(row=0, column=3, padx=10)
             # Attach hover message to buttons.
+            number_btn.message = song['number']
             name_btn.message = song['name']
             artist_btn.message = song['artist']
             youtube_btn.message = f'{song["name"]} Music Video'
             # Bind hover event to buttons to display info    .
+            number_btn.bind('<Enter>', self.button_hover)
             name_btn.bind('<Enter>', self.button_hover)
             artist_btn.bind('<Enter>', self.button_hover)
             youtube_btn.bind('<Enter>', self.button_hover)
             # Bind leave event to buttons to clear info panel.
+            number_btn.bind('<Leave>', self.button_leave)
             name_btn.bind('<Leave>', self.button_leave)
             artist_btn.bind('<Leave>', self.button_leave)
             youtube_btn.bind('<Leave>', self.button_leave)
+            # Bind scroll event to buttons and container.
+            song_frame.bind('<MouseWheel>', self.scroll)
+            number_btn.bind('<MouseWheel>', self.scroll)
+            name_btn.bind('<MouseWheel>', self.scroll)
+            artist_btn.bind('<MouseWheel>', self.scroll)
+            youtube_btn.bind('<MouseWheel>', self.scroll)
             
             self.widgets['song_frames'].append(song_frame)
+    
+    def number_btn_release(self, event):
+        """LMB release event for song button."""
+        button = event.widget
+        x, y = event.x, event.y
+        # Check if mouse is on button
+        if 0 < x < button.winfo_width() and 0 < y < button.winfo_height():
+            self.open_song_chart(button)
     
     def song_btn_release(self, event):
         """LMB release event for song button."""
@@ -171,37 +193,29 @@ class TopSongs:
     def switch_launcher(self):
         """Toggle song open method between website and app."""
         button = self.widgets['launcher_btn']
-        top_frame = self.widgets['top_frame']
+        
         if self.launcher == 'app':
             self.launcher = 'website'
             btn_text = 'Spotify Website'
         else:
             self.launcher = 'app'
             btn_text = 'Spotify App'
-        # Re-create button with new text
-        button.grid_forget()
-        button = Button(top_frame, bd=3, text=btn_text, font=self.SMALL_FONT, command=self.switch_launcher)
-        button.grid(row=0, column=3, padx=15)
-        self.widgets['launcher_btn'] = button
+            
+        button.configure(text=btn_text)
 
     def scroll(self, event):
         """Scroll through songs."""
         canvas = self.widgets['canvas']
-        canvas.yview_scroll(-1 * (event.delta // self.SCROLL_SPEED), 'units')
+        # Event.delta will be either 120 or -120.
+        # By finding the sign of event.delta, the
+        # program can scroll the opposite direction.
+        sign = event.delta // abs(event.delta)
+        canvas.yview_scroll(-sign * self.SCROLL_SPEED, 'units')
     
-    def refresh(self):
-        """Set number of songs to number entered, get songs, and re-create song buttons."""
-        try:
-            self.num_songs = int(self.widgets['num_songs'].get())
-        except ValueError:
-            self.widgets['num_songs'].delete(0, END)
-            self.widgets['num_songs'].insert(0, self.num_songs)
-        self.songs = self.get_top_songs()
-        # All song buttons and scroll frame must be removed
-        # and re-created, otherwise scroll bar won't update.
-        self.create_scrollable_frame(remove=True)
-        self.create_song_widgets(remove=True)
-
+    def scroll_to_top(self):
+        canvas = self.widgets['canvas']
+        canvas.yview_scroll(-100, 'units')
+    
     def button_hover(self, event):
         """Update hover_label with message."""
         button = event.widget
@@ -253,7 +267,6 @@ class TopSongs:
         try:
             url = song[key]
         except KeyError:
-            print('Retrieving URL...')
             song_name = song['name']
             artist = song['artist']
             real_artist = self.get_real_artist(artist)
@@ -294,6 +307,17 @@ class TopSongs:
             else:
                 uri_type, uri_id = uri.split(':')[1], uri.split(':')[2]
                 webbrowser.open(f'https://open.spotify.com/{uri_type}/{uri_id}')
+    
+    def open_song_chart(self, button):
+        """
+        Get song's number from the button that was pressed,
+        and open www.billboard.com/charts/hot-100 with that
+        song selected.
+        :param button: button that was pressed.
+        """
+        song = self.songs[button.x]
+        song_number = song['number']
+        webbrowser.open(f'https://www.billboard.com/charts/hot-100?rank={song_number}')
     
     def run(self):
         """Start app."""
