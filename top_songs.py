@@ -8,7 +8,7 @@ from www.billboard.com with links to the music videos on youtube.
 
 from spotipy.oauth2 import SpotifyClientCredentials
 from youtube_search import YoutubeSearch
-from PIL import ImageTk, Image
+from PIL import ImageTk, Image as Img
 from bs4 import BeautifulSoup
 from spotipy import Spotify
 from tkinter import ttk
@@ -36,8 +36,8 @@ class TopSongs:
         self.root = Tk()
         self.root.title('Top Songs')
         self.images = {
-            'youtube': ImageTk.PhotoImage(Image.open('youtube.png')),
-            'up_arrow': ImageTk.PhotoImage(Image.open('up_arrow.png')),
+            'youtube': ImageTk.PhotoImage(Img.open('youtube.png')),
+            'up_arrow': ImageTk.PhotoImage(Img.open('up_arrow.png')),
         }
         self.widgets = {}
         self.create_ui()
