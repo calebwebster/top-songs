@@ -6,11 +6,12 @@ This tkinter application uses a GUI to get and display the top songs
 from www.billboard.com with links to the music videos on youtube.
 """
 
-from spotipy.oauth2 import SpotifyClientCredentials
+from spotipy.oauth2 import SpotifyOAuth
 from youtube_search import YoutubeSearch
 from PIL import ImageTk, Image as Img
 from bs4 import BeautifulSoup
 from spotipy import Spotify
+from tkinter import messagebox
 from tkinter import ttk
 from tkinter import *
 import webbrowser
@@ -30,14 +31,15 @@ class TopSongs:
     
     def __init__(self):
         self.num_songs = self.NUM_SONGS
-        self.sp_api = Spotify(client_credentials_manager=SpotifyClientCredentials())
+        scope = 'user-read-currently-playing'
+        self.sp_api = Spotify(auth_manager=SpotifyOAuth(scope=scope))
         self.songs = self.get_top_songs()
-        self.launcher = self.DEFAULT_LAUNCHER
         self.root = Tk()
         self.root.title('Top Songs')
+        self.root.resizable(False, False)
         self.images = {
-            'youtube': ImageTk.PhotoImage(Img.open('youtube.png')),
-            'up_arrow': ImageTk.PhotoImage(Img.open('up_arrow.png')),
+            'youtube': ImageTk.PhotoImage(Img.open('top_songs/youtube.png')),
+            'up_arrow': ImageTk.PhotoImage(Img.open('top_songs/up_arrow.png')),
         }
         self.widgets = {}
         self.create_ui()
@@ -64,28 +66,52 @@ class TopSongs:
         """Create static buttons and sections and add them to the GUI."""
         # Create widgets.
         top_frame = LabelFrame(self.root, bd=3, relief=SUNKEN)
-        title = Label(top_frame, text='Top Songs', font=self.LARGE_FONT)
-        subtitle = Label(top_frame, text='by Caleb Webster', font=self.MEDIUM_FONT)
-        launcher_btn = Button(top_frame, width=13, bd=3, text='Spotify App', font=self.SMALL_FONT, command=self.switch_launcher)
+        title_btn = Label(top_frame, bd=0, text='Top Songs', font=self.LARGE_FONT)
+        subtitle_btn = Label(top_frame, bd=0, text='by Caleb Webster', font=self.MEDIUM_FONT)
+        app_btn = Button(top_frame, width=4, bd=3, text='App', font=self.SMALL_FONT, command=self.open_desktop_player)
+        web_btn = Button(top_frame, width=4, bd=3, text='Web', font=self.SMALL_FONT, command=self.open_web_player)
         scroll_top_btn = Button(top_frame, bd=3, image=self.images['up_arrow'], command=self.scroll_to_top)
         bottom_frame = LabelFrame(self.root, relief=SUNKEN)
         hover_label = Label(bottom_frame, text='', font=self.SMALL_FONT, anchor=W, width=59)
         # Pack em' in.
         top_frame.grid(row=0, column=0, padx=5, pady=5, sticky=W+E)
-        title.grid(row=0, column=0, padx=15)
-        subtitle.grid(row=0, column=1, pady=(15, 0))
-        launcher_btn.grid(row=0, column=2, padx=(20, 0))
-        scroll_top_btn.grid(row=0, column=3, padx=15)
+        title_btn.grid(row=0, column=0, padx=15)
+        subtitle_btn.grid(row=0, column=1, pady=(15, 0))
+        app_btn.grid(row=0, column=2, padx=(35, 0))
+        web_btn.grid(row=0, column=3)
+        scroll_top_btn.grid(row=0, column=4, padx=(31, 0))
         bottom_frame.grid(row=2, column=0, padx=5, pady=5, sticky=W+E)
         hover_label.grid(row=0, column=0)
         # Add widgets to dict.
         self.widgets['top_frame'] = top_frame
-        self.widgets['title'] = title
-        self.widgets['subtitle'] = subtitle
-        self.widgets['launcher_btn'] = launcher_btn
+        self.widgets['title_btn'] = title_btn
+        self.widgets['subtitle_btn'] = subtitle_btn
+        self.widgets['app_btn'] = app_btn
+        self.widgets['web_btn'] = web_btn
         self.widgets['bottom_frame'] = bottom_frame
         self.widgets['hover_label'] = hover_label
         self.widgets['song_frames'] = []
+        # Bindings
+        title_btn.bind('<Button-1>', self.open_project_github)
+        subtitle_btn.bind('<Button-1>', self.open_developer_github)
+        # Bind status messages to buttons.
+        title_btn.message = 'https://www.github.com/CalebWebsterJCU/TopSongs'
+        subtitle_btn.message = 'https://www.github.com/CalebWebsterJCU'
+        app_btn.message = 'Open Spotify Desktop Player'
+        web_btn.message = 'Open Spotify Web Player'
+        scroll_top_btn.message = 'Scroll to Top'
+        # Bind hover event to buttons to display info.
+        title_btn.bind('<Enter>', self.button_hover)
+        subtitle_btn.bind('<Enter>', self.button_hover)
+        app_btn.bind('<Enter>', self.button_hover)
+        web_btn.bind('<Enter>', self.button_hover)
+        scroll_top_btn.bind('<Enter>', self.button_hover)
+        # Bind leave event to buttons to clear info panel.
+        title_btn.bind('<Leave>', self.button_leave)
+        subtitle_btn.bind('<Leave>', self.button_leave)
+        app_btn.bind('<Leave>', self.button_leave)
+        web_btn.bind('<Leave>', self.button_leave)
+        scroll_top_btn.bind('<Leave>', self.button_leave)
         
         self.create_scrollable_frame()
         self.create_song_widgets()
@@ -100,7 +126,7 @@ class TopSongs:
             
         middle_frame_outer = LabelFrame(self.root, bd=3, relief=SUNKEN)
         # Behold, the process for creating a simple scrolling widget in Tkinter.
-        canvas = Canvas(middle_frame_outer, height=460)
+        canvas = Canvas(middle_frame_outer, height=480)
         scrollbar = ttk.Scrollbar(middle_frame_outer, orient=VERTICAL, command=canvas.yview)
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.bind('<Configure>', lambda event: canvas.configure(scrollregion=canvas.bbox('all')))
@@ -136,10 +162,10 @@ class TopSongs:
             shortened_artist = song['artist'][:max_name_length + 1] + '...' if len(song['artist']) > max_name_length else song['artist']
             # Create inner frame and buttons for song name, artist, album cover, and music video.
             song_frame = LabelFrame(middle_frame_inner, bd=3, relief=RAISED)
-            number_btn = Button(song_frame, width=3, bd=0, text=str(song['number']) + '.', font=self.SMALL_FONT)
-            name_btn = Button(song_frame, width=max_name_length, bd=0, text=shortened_name, padx=10, anchor=W, font=self.SMALL_FONT)
-            artist_btn = Button(song_frame, width=max_artist_length + 5, bd=0, text=shortened_artist, padx=10, anchor=W, font=self.SMALL_FONT)
-            youtube_btn = Button(song_frame, bd=0, image=self.images['youtube'])
+            number_btn = Label(song_frame, width=3, text=str(song['number']) + '.', font=self.SMALL_FONT)
+            name_btn = Label(song_frame, width=max_name_length, text=shortened_name, padx=10, anchor=W, font=self.SMALL_FONT)
+            artist_btn = Label(song_frame, width=max_artist_length + 5, text=shortened_artist, padx=10, anchor=W, font=self.SMALL_FONT)
+            youtube_btn = Label(song_frame, image=self.images['youtube'])
             # Add data (dict key) and index (song i) to buttons.
             name_btn.data = 'song_uri'
             artist_btn.data = 'artist_uri'
@@ -164,7 +190,7 @@ class TopSongs:
             name_btn.message = song['name']
             artist_btn.message = song['artist']
             youtube_btn.message = f'{song["name"]} Music Video'
-            # Bind hover event to buttons to display info    .
+            # Bind hover event to buttons to display info.
             number_btn.bind('<Enter>', self.button_hover)
             name_btn.bind('<Enter>', self.button_hover)
             artist_btn.bind('<Enter>', self.button_hover)
@@ -182,19 +208,34 @@ class TopSongs:
             youtube_btn.bind('<MouseWheel>', self.scroll)
             
             self.widgets['song_frames'].append(song_frame)
-    
-    def switch_launcher(self):
-        """Toggle song open method between website and app."""
-        button = self.widgets['launcher_btn']
-        
-        if self.launcher == 'app':
-            self.launcher = 'website'
-            btn_text = 'Spotify Website'
-        else:
-            self.launcher = 'app'
-            btn_text = 'Spotify App'
             
-        button.configure(text=btn_text)
+    @staticmethod
+    def open_project_github(event):
+        """Open the TopSongs directory in GitHub."""
+        button = event.widget
+        x, y = event.x, event.y
+        # Check if mouse is on button
+        if 0 < x < button.winfo_width() and 0 < y < button.winfo_height():
+            webbrowser.open('https://www.github.com/CalebWebsterJCU/TopSongs')
+    
+    @staticmethod
+    def open_developer_github(event):
+        """Open Caleb Webster's Github page."""
+        button = event.widget
+        x, y = event.x, event.y
+        # Check if mouse is on button
+        if 0 < x < button.winfo_width() and 0 < y < button.winfo_height():
+            webbrowser.open('https://www.github.com/CalebWebsterJCU')
+    
+    @staticmethod
+    def open_desktop_player():
+        """Open the Spotify Desktop Player using Windows command prompt."""
+        os.system('spotify')
+    
+    @staticmethod
+    def open_web_player():
+        """Open the Spotify Web Player in the default browser."""
+        webbrowser.open('https://open.spotify.com')
     
     def scroll_to_top(self):
         canvas = self.widgets['canvas']
@@ -263,14 +304,14 @@ class TopSongs:
         and open the desired one, either in website or app.
         :param button: button that was pressed
         """
-        uri = ':'
         # Button stores data key and song index.
         key = button.data
         i = button.index
         song = self.songs[i]
-        try:
+        
+        if key in song:
             uri = song[key]
-        except KeyError:
+        else:
             song_name = song['name']
             artist = song['artist']
             real_artist = self.get_real_artist(artist)
@@ -279,12 +320,13 @@ class TopSongs:
             song['song_uri'] = result['tracks']['items'][0]['uri']
             song['artist_uri'] = result['tracks']['items'][0]['artists'][0]['uri']
             uri = self.songs[i][key]
-        finally:
-            if self.launcher == 'app':
-                os.system(f'spotify --uri={uri}')
-            else:
-                uri_type, uri_id = uri.split(':')[1], uri.split(':')[2]
-                webbrowser.open(f'https://open.spotify.com/{uri_type}/{uri_id}')
+        
+        devices = self.sp_api.devices()['devices']
+        if len(devices) > 0:
+            device_id = devices[0]['id']  # Play on first device
+            self.sp_api.start_playback(uris=[uri], device_id=device_id)
+        else:
+            messagebox.showinfo('No Player', 'No Spotify player running! Use the App/Web buttons to launch Spotify. You may have to wait a second before hitting play.')
     
     def open_music_video(self, button):
         """
@@ -292,14 +334,14 @@ class TopSongs:
         If not, search for the song id and build and open the url.
         :param button: button that was pressed
         """
-        url = 'https://www.youtube.com'
         # Button stores data key and song index.
         key = button.data
         i = button.index
         song = self.songs[i]
-        try:
+        
+        if key in song:
             url = song[key]
-        except KeyError:
+        else:
             song_name = song['name']
             artist = song['artist']
             real_artist = self.get_real_artist(artist)
@@ -308,8 +350,8 @@ class TopSongs:
             video_id = results[0]['id']
             url = f'https://www.youtube.com/watch?v={video_id}'
             song['yt_url'] = url
-        finally:
-            webbrowser.open(url)
+            
+        webbrowser.open(url)
     
     @staticmethod
     def get_real_artist(artist):
@@ -324,4 +366,5 @@ class TopSongs:
 
 
 if __name__ == '__main__':
+    print(os.getcwd())
     TopSongs().run()
