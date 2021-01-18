@@ -92,8 +92,8 @@ class TopSongs:
         self.widgets['hover_label'] = hover_label
         self.widgets['song_frames'] = []
         # Bindings
-        title_btn.bind('<Button-1>', self.open_project_github)
-        subtitle_btn.bind('<Button-1>', self.open_developer_github)
+        title_btn.bind('<ButtonRelease-1>', self.open_project_github)
+        subtitle_btn.bind('<ButtonRelease-1>', self.open_developer_github)
         # Bind status messages to buttons.
         title_btn.message = 'https://www.github.com/CalebWebsterJCU/TopSongs'
         subtitle_btn.message = 'https://www.github.com/CalebWebsterJCU'
@@ -238,6 +238,7 @@ class TopSongs:
         webbrowser.open('https://open.spotify.com')
     
     def scroll_to_top(self):
+        """Scroll to top of scrollable songs frame."""
         canvas = self.widgets['canvas']
         canvas.yview_scroll(-len(self.songs), 'units')
     
@@ -366,5 +367,4 @@ class TopSongs:
 
 
 if __name__ == '__main__':
-    print(os.getcwd())
     TopSongs().run()
