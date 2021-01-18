@@ -31,7 +31,7 @@ class TopSongs:
     
     def __init__(self):
         self.num_songs = self.NUM_SONGS
-        scope = 'user-read-currently-playing'
+        scope = 'user-read-currently-playing user-modify-playback-state user-read-playback-state'
         self.sp_api = Spotify(auth_manager=SpotifyOAuth(scope=scope))
         self.songs = self.get_top_songs()
         self.root = Tk()
@@ -43,7 +43,7 @@ class TopSongs:
         }
         self.widgets = {}
         self.create_ui()
-        
+    
     def get_top_songs(self):
         """Request and return a number of the top songs from billboard.com."""
         top_100 = requests.get('https://www.billboard.com/charts/hot-100')
@@ -74,13 +74,13 @@ class TopSongs:
         bottom_frame = LabelFrame(self.root, relief=SUNKEN)
         hover_label = Label(bottom_frame, text='', font=self.SMALL_FONT, anchor=W, width=59)
         # Pack em' in.
-        top_frame.grid(row=0, column=0, padx=5, pady=5, sticky=W+E)
+        top_frame.grid(row=0, column=0, padx=5, pady=5, sticky=W + E)
         title_btn.grid(row=0, column=0, padx=15)
         subtitle_btn.grid(row=0, column=1, pady=(15, 0))
         app_btn.grid(row=0, column=2, padx=(35, 0))
         web_btn.grid(row=0, column=3)
         scroll_top_btn.grid(row=0, column=4, padx=(31, 0))
-        bottom_frame.grid(row=2, column=0, padx=5, pady=5, sticky=W+E)
+        bottom_frame.grid(row=2, column=0, padx=5, pady=5, sticky=W + E)
         hover_label.grid(row=0, column=0)
         # Add widgets to dict.
         self.widgets['top_frame'] = top_frame
@@ -123,7 +123,7 @@ class TopSongs:
             self.widgets['canvas'].grid_forget()
             self.widgets['scrollbar'].grid_forget()
             self.widgets['middle_frame_inner'].grid_forget()
-            
+        
         middle_frame_outer = LabelFrame(self.root, bd=3, relief=SUNKEN)
         # Behold, the process for creating a simple scrolling widget in Tkinter.
         canvas = Canvas(middle_frame_outer, height=480)
@@ -134,11 +134,11 @@ class TopSongs:
         middle_frame_inner.bind('<MouseWheel>', self.scroll)
         scrollbar.bind('<MouseWheel>', self.scroll)
         canvas.create_window((0, 0), window=middle_frame_inner, anchor=N + W)
-
+        
         middle_frame_outer.grid(row=1, column=0, padx=5, pady=5, sticky=W + E)
         canvas.pack(side=LEFT, fill=BOTH, expand=True)
         scrollbar.pack(side=RIGHT, fill=Y)
-
+        
         self.widgets['middle_frame_outer'] = middle_frame_outer
         self.widgets['canvas'] = canvas
         self.widgets['scrollbar'] = scrollbar
@@ -180,7 +180,7 @@ class TopSongs:
             artist_btn.bind('<ButtonRelease-1>', self.song_btn_release)
             youtube_btn.bind('<ButtonRelease-1>', self.yt_btn_release)
             # Add buttons and frame to bottom frame.
-            song_frame.grid(row=x, column=0, padx=6, pady=3, sticky=W+E)
+            song_frame.grid(row=x, column=0, padx=6, pady=3, sticky=W + E)
             number_btn.grid(row=0, column=0)
             name_btn.grid(row=0, column=1)
             artist_btn.grid(row=0, column=2)
@@ -208,7 +208,7 @@ class TopSongs:
             youtube_btn.bind('<MouseWheel>', self.scroll)
             
             self.widgets['song_frames'].append(song_frame)
-            
+    
     @staticmethod
     def open_project_github(event):
         """Open the TopSongs directory in GitHub."""
@@ -250,7 +250,7 @@ class TopSongs:
         # program can scroll the opposite direction.
         sign = event.delta // abs(event.delta)
         canvas.yview_scroll(-sign * self.SCROLL_SPEED, 'units')
-
+    
     def number_btn_release(self, event):
         """LMB release event for song button."""
         button = event.widget
@@ -297,7 +297,7 @@ class TopSongs:
         song = self.songs[button.x]
         song_number = song['number']
         webbrowser.open(f'https://www.billboard.com/charts/hot-100?rank={song_number}')
-        
+    
     def open_spotify_uri(self, button):
         """
         If a song's URIs are already stored, open the desired one.
@@ -351,7 +351,7 @@ class TopSongs:
             video_id = results[0]['id']
             url = f'https://www.youtube.com/watch?v={video_id}'
             song['yt_url'] = url
-            
+        
         webbrowser.open(url)
     
     @staticmethod
