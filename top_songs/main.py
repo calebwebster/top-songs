@@ -2,8 +2,13 @@
 """
 Top Songs
 2021
-This tkinter application uses a GUI to get and display the top songs
-from www.billboard.com with links to the music videos on youtube.
+This tkinter application uses a GUI to list the top songs of the week.
+Songs retrieved from www.billboard.com.
+Features:
+Launches web and desktop Spotify apps.
+Plays requested songs.
+Opens song artist in launcher.
+Plays song music videos on Youtube.
 """
 
 from spotipy.oauth2 import SpotifyOAuth
