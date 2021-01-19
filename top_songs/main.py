@@ -16,6 +16,7 @@ from tkinter import ttk
 from tkinter import *
 import webbrowser
 import requests
+import socket
 import os
 
 
@@ -177,7 +178,7 @@ class TopSongs:
             # Bind open functions to buttons.
             number_btn.bind('<ButtonRelease-1>', self.number_btn_release)
             name_btn.bind('<ButtonRelease-1>', self.song_btn_release)
-            artist_btn.bind('<ButtonRelease-1>', self.song_btn_release)
+            artist_btn.bind('<ButtonRelease-1>', self.artist_btn_release)
             youtube_btn.bind('<ButtonRelease-1>', self.yt_btn_release)
             # Add buttons and frame to bottom frame.
             song_frame.grid(row=x, column=0, padx=6, pady=3, sticky=W + E)
@@ -265,7 +266,15 @@ class TopSongs:
         x, y = event.x, event.y
         # Check if mouse is on button
         if 0 < x < button.winfo_width() and 0 < y < button.winfo_height():
-            self.open_spotify_uri(button)
+            self.play_song(button)
+    
+    def artist_btn_release(self, event):
+        """LMB release event for artist button."""
+        button = event.widget
+        x, y = event.x, event.y
+        # Check if mouse is on button
+        if 0 < x < button.winfo_width() and 0 < y < button.winfo_height():
+            self.open_artist(button)
     
     def yt_btn_release(self, event):
         """LMB release event for youtube button."""
@@ -298,29 +307,70 @@ class TopSongs:
         song_number = song['number']
         webbrowser.open(f'https://www.billboard.com/charts/hot-100?rank={song_number}')
     
-    def open_spotify_uri(self, button):
+    def get_spotipy_data(self, song):
+        song_name = song['name']
+        artist = song['artist']
+        real_artist = self.get_real_artist(artist)
+        # Send request to Spotify's API and sift through dict to find desired data.
+        result = self.sp_api.search(q=f'{song_name} {real_artist}', type='track', limit=1)
+        song['uri'] = result['tracks']['items'][0]['uri']
+        song['artist_uri'] = result['tracks']['items'][0]['artists'][0]['uri']  # First listed artist
+    
+    def spotify_launchers_are_running(self):
+        app = False
+        web = False
+        pc_name = socket.gethostname()
+        devices = self.sp_api.devices()['devices']
+        print(devices)
+        for device in devices:
+            if device['name'] == pc_name:
+                app = True
+            if 'Web Player' in device['name']:
+                web = True
+        return app, web
+    
+    def open_artist(self, button):
         """
-        If a song's URIs are already stored, open the desired one.
+        If a artist's URI is already stored, open it
+        in the browser, desktop app, or both.
         If not, search for the song's URIs using spotipy
-        and open the desired one, either in website or app.
+        and open it.
         :param button: button that was pressed
         """
         # Button stores data key and song index.
-        key = button.data
+        i = button.index
+        song = self.songs[i]
+    
+        if 'artist_uri' in song:
+            uri = song['artist_uri']
+        else:
+            self.get_spotipy_data(song)
+            uri = self.songs[i]['artist_uri']
+        
+        app, web = self.spotify_launchers_are_running()
+        
+        if app:
+            os.system(f'spotify --uri={uri}')
+        if web:
+            uri_type, uri_id = uri.split(':')[1], uri.split(':')[2]
+            webbrowser.open(f'https://open.spotify.com/{uri_type}/{uri_id}')
+        
+    def play_song(self, button):
+        """
+        If a song's URI is already stored, play it.
+        If not, search for the song's URI using spotipy
+        and play it in the first running launcher.
+        :param button: button that was pressed
+        """
+        # Button stores data key and song index.
         i = button.index
         song = self.songs[i]
         
-        if key in song:
-            uri = song[key]
+        if 'uri' in song:
+            uri = song['uri']
         else:
-            song_name = song['name']
-            artist = song['artist']
-            real_artist = self.get_real_artist(artist)
-            # Send request to Spotify's API and sift through dict to find desired data.
-            result = self.sp_api.search(q=f'{song_name} {real_artist}', type='track', limit=1)
-            song['song_uri'] = result['tracks']['items'][0]['uri']
-            song['artist_uri'] = result['tracks']['items'][0]['artists'][0]['uri']
-            uri = self.songs[i][key]
+            self.get_spotipy_data(song)
+            uri = self.songs[i]['uri']
         
         devices = self.sp_api.devices()['devices']
         if len(devices) > 0:
