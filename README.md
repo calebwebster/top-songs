@@ -2,8 +2,10 @@
 
 #### Keep up with the hottest music!
 
-Top Songs is a python application created using Tkinter that gets the top 100 songs 
+Top Songs is a python application created using Tkinter that gets the top 100 songs of the week
 from [Billboard](https://www.billboard.com/charts/hot-100) and displays them using a simple GUI.
+
+> _"Might help you stay relevant."_
 
 Top Songs uses the Spotify API through the python module _spotipy_ to play songs at the click of
 a button. Simply click on a song's name to start playback in the currently running spotify player
@@ -93,22 +95,34 @@ The environment variables you need to set are:
 - __SPOTIPY_CLIENT_SECRET__ - another random character string, found by clicking the SHOW CLIENT SECRET button.
 - __SPOTIPY_REDIRECT_URI__ - the url you entered in your app settings in step 1.
 
-
 ### Step 4: Running the Program.
+Run Top Songs, either by running "run.py", or, if you're using your own code, initializing a TopSongs object, and calling
+the .run() method. The GUI should load, if not, you've forgotten one of the required modules, entered your credentials wrong,
+or your internet connection is either terrible or non-existent. Test the Spotify API by clicking on one of the top songs. A 
+web page should open and prompt you to "agree" to let Top Songs access and control your spotify account.
 
+After pressing "Agree", you will be redirected to your chosen redirect url. You don't need to do anything on this site, just copy the
+url in the browser. This has your secret inside it.
 
+Click on the console, which should have opened when you started Top Songs. There will be a prompt asking you to "enter the url you were
+directed to". Simply paste the url you copied from your browser into the console and press enter. Now that you've done this, I can tell 
+you that in the blink of an eye I could have emptied all your playlists and filled them with 10000 copies of _"Take it All Away"_, or 
+executed the greatest rickroll of all time, all with your permission. You'd better check your account, just in case.
 
-#### Files:
+After you've entered the url, spotipy will create a .cache file in the project directory. Do not delete this file. It contains an 
+authentication token that will eventually expire, after which you will have to press "agree" and enter the url again.
 
-- __top\_songs/\_\_init\_\_.py__ - makes importing TopSongs easier: `from top_songs import TopSongs`.
-- __top\_songs/main.py__ - GUI Application code.
-- __top\_songs/up_arrow.png__ - Scroll to Top button image
-- __top\_songs/youtube.png__ - Music Video button image
-- __credentials.txt__ - Stores your CLIENT_ID (1st line), CLIENT_SECRET (2nd line), and REDIRECT_URL (3rd line) (see step 999999999999999999999999999)
-- __run.py__ - Makes running Top Songs app easier: `python run.py`.
+### Step 5: Enjoy!
+You're finished. Have fun playing through the top songs of the week, and please don't try to contact me if you have any problems with the 
+program. 
 
-### GUI Layout:
+Cheers!
 
+Caleb Webster
+
+## GUI Layout
+
+Below is an example layout of a Top Songs song widget. The buttons are separated by pipe characters ("|")
 #### 1 | Fireflies | Owl City | Music Video
 
 In this example, each word is a button that, when clicked, performs a unique function:
@@ -118,3 +132,8 @@ In this example, each word is a button that, when clicked, performs a unique fun
 - __Owl City__ - Opens artist _"Owl City"_ in currently open player (or both, if both web and app are open)
 - __Music Video__ - Searches for and opens the most relevant video for _"Fireflies Owl City"_ on YouTube, which is usually the song's music video.
 
+## Files
+
+- __top\_songs/main.py__ - GUI Application code.
+- __credentials.txt__ - Stores your CLIENT_ID (1st line), CLIENT_SECRET (2nd line), and REDIRECT_URL (3rd line) (see step 3 & 4)
+- __run.py__ - Makes running Top Songs app easier: `python run.py`.
