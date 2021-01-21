@@ -1,4 +1,3 @@
-#! py -3.7
 """
 Top Songs
 2021
@@ -9,6 +8,7 @@ Launches web and desktop Spotify apps.
 Plays requested songs.
 Opens song artist in launcher.
 Plays song music videos on Youtube.
+Github: https://www.github.com/CalebWebsterJCU/TopSongs
 """
 
 from spotipy.oauth2 import SpotifyOAuth
@@ -34,11 +34,19 @@ class TopSongs:
     SMALL_FONT = ('Sansation', 12)
     SCROLL_SPEED = 1
     DEFAULT_LAUNCHER = 'app'
+    CREDENTIALS_FILE = 'credentials.txt'
     
     def __init__(self):
         self.num_songs = self.NUM_SONGS
         scope = 'user-read-currently-playing user-modify-playback-state user-read-playback-state'
-        self.sp_api = Spotify(auth_manager=SpotifyOAuth(scope=scope))
+        client_id, client_secret, redirect_url = self.get_spotify_creds(self.CREDENTIALS_FILE)
+        auth_manager = SpotifyOAuth(
+            scope=scope,
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_url
+        )
+        self.sp_api = Spotify(auth_manager=auth_manager)
         self.songs = self.get_top_songs()
         self.root = Tk()
         self.root.title('Top Songs')
@@ -49,6 +57,19 @@ class TopSongs:
         }
         self.widgets = {}
         self.create_ui()
+    
+    @staticmethod
+    def get_spotify_creds(filename):
+        with open(filename, 'r') as file_in:
+            try:
+                client_id = os.environ['SPOTIPY_CLIENT_ID']
+                client_secret = os.environ['SPOTIPY_CLIENT_secret']
+                redirect_uri = os.environ['SPOTIPY_REDIRECT_URI']
+            except KeyError:
+                client_id = file_in.readline().strip()
+                client_secret = file_in.readline().strip()
+                redirect_uri = file_in.readline().strip()
+        return client_id, client_secret, redirect_uri
     
     def get_top_songs(self):
         """Request and return a number of the top songs from billboard.com."""
