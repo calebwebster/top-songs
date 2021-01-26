@@ -1,22 +1,24 @@
 """
 Top Songs
 2021
-This tkinter application uses a GUI to list the top songs of the week.
-Songs retrieved from www.billboard.com.
+This application uses a GUI to list the top songs of the week from www.billboard.com.
+
 Features:
 Launches web and desktop Spotify apps.
 Plays requested songs.
-Opens song artist in launcher.
+Opens song artists in launcher.
 Plays song music videos on Youtube.
 Github: https://www.github.com/CalebWebsterJCU/TopSongs
+
+See README.md for info regarding application setup.
 """
 
-from spotipy.oauth2 import SpotifyOAuth
 from youtube_search import YoutubeSearch
+from spotipy.oauth2 import SpotifyOAuth
 from PIL import ImageTk, Image as Img
+from tkinter import messagebox
 from bs4 import BeautifulSoup
 from spotipy import Spotify
-from tkinter import messagebox
 from tkinter import ttk
 from tkinter import *
 import webbrowser
@@ -24,30 +26,117 @@ import requests
 import socket
 import os
 
+NUM_SONGS = 100
+LARGE_FONT = ('Goldman', 22)
+MEDIUM_FONT = ('Goldman', 10)
+SMALL_FONT = ('Sansation', 12)
+SCROLL_SPEED = 1
+CREDENTIALS_FILE = 'credentials.txt'
+
 
 class TopSongs:
-    """Top Songs Tkinter Application."""
+    """
+    A class to store methods for the Top Songs Application.
     
-    NUM_SONGS = 100
-    LARGE_FONT = ('Goldman', 22)
-    MEDIUM_FONT = ('Goldman', 10)
-    SMALL_FONT = ('Sansation', 12)
-    SCROLL_SPEED = 1
-    DEFAULT_LAUNCHER = 'app'
-    CREDENTIALS_FILE = 'credentials.txt'
+    Attributes:
+        sp_api : Spotify
+            spotify api connection object used to play songs
+        songs : list[dict]
+            list of songs read from www.billboard.com
+        root : Tk
+            Tkinter base window on which to build ui
+        images : dict[str: ImageTk]
+            loaded images used for youtube buttons and scroll top button
+        widgets : dict[str: Widget]
+            dictionary of widgets (widget name mapped to widget object)
     
-    def __init__(self):
-        self.num_songs = self.NUM_SONGS
+    Methods:
+        get_spotify_creds():
+            Read spotify credentials from environment variables or CREDENTIALS_FILE
+        get_top_songs(n):
+            Request and return a number of top songs from www.billboard.com
+        create_ui(self):
+            Create static buttons and sections and add them to the GUI.
+        create_scrollable_frame(self):
+            Create Scrollable region to contain song widgets.
+        create_song_widgets(self):
+            Create buttons and labels for each song.
+        open_project_github(event):
+            Open the TopSongs directory in GitHub.
+        open_developer_github(event):
+            Open developer's Github page.
+        open_desktop_player():
+            Open the Spotify Desktop Player using Windows command prompt.
+        open_desktop_player():
+            Open the Spotify Desktop Player using Windows command prompt.
+        open_web_player():
+            Open the Spotify Web Player in the default browser.
+        scroll_to_top(self):
+            Scroll to top of scrollable songs frame.
+        scroll(self, event):
+            Scroll through songs.
+        number_btn_release(self, event):
+            Open Billboard song chart upon releasing song number button.
+        song_btn_release(self, event):
+            Start song playback upon releasing song name button
+        artist_btn_release(self, event):
+            Open artist in currently open player upon releasing artist button.
+        yt_btn_release(self, event):
+            Open song's music video upon releasing youtube button.
+        button_hover(self, event):
+            Upon hovering over a widget, update status label with widget's message.
+        button_leave(self, event):
+            Upon leaving a widget, clear status label.
+        open_song_chart(self, button):
+            Open Billboard chart with button's song selected.
+        get_song_data(self, song):
+            Get a song's track and artist URIs from Spotify's API via spotipy.
+        spotify_launchers_are_running(self):
+            Check whether Spotify app or web players (or both) are running.
+        open_artist(self, button):
+            Open an artist in the currently open Spotify player.
+        play_song(self, button):
+            Play a song in the currently open Spotify player.
+        open_music_video(self, button):
+            Open a song's music video on YouTube in the default browser.
+        get_real_artist(artist):
+            Return an artist string with featured artists removed.
+        run(self):
+            Start TopSongs app.
+    """
+    
+    def __init__(self, client_id=None, client_secret=None, redirect_uri=None):
+        """
+        Create attributes for TopSongs object, connect spotipy, get songs, initialize Tkinter.
+        
+        :param client_id: Client ID of your Spotify app (default=None)
+        :param client_secret: Client Secret of your Spotify app (default=None)
+        :param redirect_uri: Redirect URI of your Spotify app (default=None)
+        
+        The above parameters are optional, if they are left blank the program will set them from
+        environment variables or by reading CREDENTIALS_FILE (see get_spotify_creds()). Whichever
+        of these three ways you choose, these three variables must be set and correct to run TopSongs.
+        
+        NOTE: providing TopSongs with your credentials allows the program to access your spotify account.
+        
+        the variable scope dictates which parts of your information TopSongs can access. The scope is set
+        to "user-read-currently-playing user-modify-playback-state user-read-playback-state", which means
+        that TopSongs can only start/stop playback, see what you're playing, and what device you're playing
+        on.
+        """
         scope = 'user-read-currently-playing user-modify-playback-state user-read-playback-state'
-        client_id, client_secret, redirect_url = self.get_spotify_creds(self.CREDENTIALS_FILE)
+        if client_id and client_secret and redirect_uri:
+            cid, secret, uri = client_id, client_secret, redirect_uri
+        else:
+            cid, secret, uri = self.get_spotify_creds()
         auth_manager = SpotifyOAuth(
             scope=scope,
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri=redirect_url
+            client_id=cid,
+            client_secret=secret,
+            redirect_uri=uri
         )
         self.sp_api = Spotify(auth_manager=auth_manager)
-        self.songs = self.get_top_songs()
+        self.songs = self.get_top_songs(NUM_SONGS)
         self.root = Tk()
         self.root.title('Top Songs')
         self.root.resizable(False, False)
@@ -59,20 +148,53 @@ class TopSongs:
         self.create_ui()
     
     @staticmethod
-    def get_spotify_creds(filename):
-        with open(filename, 'r') as file_in:
-            try:
-                client_id = os.environ['SPOTIPY_CLIENT_ID']
-                client_secret = os.environ['SPOTIPY_CLIENT_secret']
-                redirect_uri = os.environ['SPOTIPY_REDIRECT_URI']
-            except KeyError:
+    def get_spotify_creds():
+        """
+        Read spotify credentials from environment variables or CREDENTIALS_FILE.
+        
+        :except KeyError: if one or more env variables are missing, read from file
+        
+        Environment variable names:
+        SPOTIPY_CLIENT_ID
+        SPOTIPY_CLIENT_secret
+        SPOTIPY_REDIRECT_URI
+        
+        Credentials file format:
+        Line 1: Client Id
+        Line 2: Client Secret
+        Line 3: Redirect Uri
+        """
+        try:
+            client_id = os.environ['SPOTIPY_CLIENT_ID']
+            client_secret = os.environ['SPOTIPY_CLIENT_SECRET']
+            redirect_uri = os.environ['SPOTIPY_REDIRECT_URI']
+        except KeyError:
+            with open(CREDENTIALS_FILE, 'r') as file_in:
                 client_id = file_in.readline().strip()
                 client_secret = file_in.readline().strip()
                 redirect_uri = file_in.readline().strip()
+                
         return client_id, client_secret, redirect_uri
     
-    def get_top_songs(self):
-        """Request and return a number of the top songs from billboard.com."""
+    @staticmethod
+    def get_top_songs(n):
+        """
+        Request and return a number of top songs from www.billboard.com.
+        
+        :param int n: number of songs to return
+        :return: top songs
+        :rtype: list[dict]
+        
+        songs are extracted from HTML parsed by beautifulsoup4 and are
+        stored as dictionaries with the format:
+        {
+            "number": number,
+            "name": name,
+            "artist": artist
+        }
+        NOTE: making n smaller does not reduce network load or processing time.
+        You just get less songs.
+        """
         top_100 = requests.get('https://www.billboard.com/charts/hot-100')
         try:
             top_100.raise_for_status()
@@ -83,23 +205,32 @@ class TopSongs:
         # Parse HTML.
         soup = BeautifulSoup(html, 'html.parser')
         songs = []
-        for number, song in enumerate(soup.find_all('li', class_='chart-list__element')[:self.num_songs], 1):
+        for number, song in enumerate(soup.find_all('li', class_='chart-list__element')[:n], 1):
             name = song.find('span', class_='chart-element__information__song').text
             artist = song.find('span', class_='chart-element__information__artist').text.replace('Featuring', 'ft.').replace(' x ', ', ').replace(' & ', ', ').replace(' X ', ', ')
             songs.append({'number': number, 'name': name, 'artist': artist})
         return songs
     
     def create_ui(self):
-        """Create static buttons and sections and add them to the GUI."""
+        """
+        Create static buttons and sections and add them to the GUI.
+        
+        Process for creating widgets:
+        Step 1. Create widget objects (LabelFrame, Label, Button)
+        Step 2. Pack widgets to the screen (widget.grid(), widget.pack())
+        Step 3. Add widgets to self.widgets dict
+        Step 4. Add message attributes to widgets to show in status bar
+        Step 5. Add necessary bindings to widgets
+        """
         # Create widgets.
         top_frame = LabelFrame(self.root, bd=3, relief=SUNKEN)
-        title_btn = Label(top_frame, bd=0, text='Top Songs', font=self.LARGE_FONT)
-        subtitle_btn = Label(top_frame, bd=0, text='by Caleb Webster', font=self.MEDIUM_FONT)
-        app_btn = Button(top_frame, width=4, bd=3, text='App', font=self.SMALL_FONT, command=self.open_desktop_player)
-        web_btn = Button(top_frame, width=4, bd=3, text='Web', font=self.SMALL_FONT, command=self.open_web_player)
+        title_btn = Label(top_frame, bd=0, text='Top Songs', font=LARGE_FONT)
+        subtitle_btn = Label(top_frame, bd=0, text='by Caleb Webster', font=MEDIUM_FONT)
+        app_btn = Button(top_frame, width=4, bd=3, text='App', font=SMALL_FONT, command=self.open_desktop_player)
+        web_btn = Button(top_frame, width=4, bd=3, text='Web', font=SMALL_FONT, command=self.open_web_player)
         scroll_top_btn = Button(top_frame, bd=3, image=self.images['up_arrow'], command=self.scroll_to_top)
         bottom_frame = LabelFrame(self.root, relief=SUNKEN)
-        hover_label = Label(bottom_frame, text='', font=self.SMALL_FONT, anchor=W, width=59)
+        hover_label = Label(bottom_frame, text='', font=SMALL_FONT, anchor=W, width=59)
         # Pack em' in.
         top_frame.grid(row=0, column=0, padx=5, pady=5, sticky=W + E)
         title_btn.grid(row=0, column=0, padx=15)
@@ -118,15 +249,15 @@ class TopSongs:
         self.widgets['bottom_frame'] = bottom_frame
         self.widgets['hover_label'] = hover_label
         self.widgets['song_frames'] = []
-        # Bindings
-        title_btn.bind('<ButtonRelease-1>', self.open_project_github)
-        subtitle_btn.bind('<ButtonRelease-1>', self.open_developer_github)
         # Bind status messages to buttons.
         title_btn.message = 'https://www.github.com/CalebWebsterJCU/TopSongs'
         subtitle_btn.message = 'https://www.github.com/CalebWebsterJCU'
         app_btn.message = 'Open Spotify Desktop Player'
         web_btn.message = 'Open Spotify Web Player'
         scroll_top_btn.message = 'Scroll to Top'
+        # Bindings for labels.
+        title_btn.bind('<ButtonRelease-1>', self.open_project_github)
+        subtitle_btn.bind('<ButtonRelease-1>', self.open_developer_github)
         # Bind hover event to buttons to display info.
         title_btn.bind('<Enter>', self.button_hover)
         subtitle_btn.bind('<Enter>', self.button_hover)
@@ -143,14 +274,8 @@ class TopSongs:
         self.create_scrollable_frame()
         self.create_song_widgets()
     
-    def create_scrollable_frame(self, remove=False):
-        """Create or refresh scrollable frame to hold songs."""
-        if remove:
-            self.widgets['middle_frame_outer'].grid_forget()
-            self.widgets['canvas'].grid_forget()
-            self.widgets['scrollbar'].grid_forget()
-            self.widgets['middle_frame_inner'].grid_forget()
-        
+    def create_scrollable_frame(self):
+        """Create Scrollable region to contain song widgets."""
         middle_frame_outer = LabelFrame(self.root, bd=3, relief=SUNKEN)
         # Behold, the process for creating a simple scrolling widget in Tkinter.
         canvas = Canvas(middle_frame_outer, height=480)
@@ -171,13 +296,8 @@ class TopSongs:
         self.widgets['scrollbar'] = scrollbar
         self.widgets['middle_frame_inner'] = middle_frame_inner
     
-    def create_song_widgets(self, remove=False):
+    def create_song_widgets(self):
         """Create buttons and labels for each song."""
-        # If specified, remove all song widgets.
-        if remove:
-            for widget in self.widgets['song_frames']:
-                widget.grid_forget()
-            self.widgets['song_frames'].clear()
         max_name_length = 20
         max_artist_length = 15
         # Add song widgets to bottom frame.
@@ -189,9 +309,9 @@ class TopSongs:
             shortened_artist = song['artist'][:max_name_length + 1] + '...' if len(song['artist']) > max_name_length else song['artist']
             # Create inner frame and buttons for song name, artist, album cover, and music video.
             song_frame = LabelFrame(middle_frame_inner, bd=3, relief=RAISED)
-            number_btn = Label(song_frame, width=3, text=str(song['number']) + '.', font=self.SMALL_FONT)
-            name_btn = Label(song_frame, width=max_name_length, text=shortened_name, padx=10, anchor=W, font=self.SMALL_FONT)
-            artist_btn = Label(song_frame, width=max_artist_length + 5, text=shortened_artist, padx=10, anchor=W, font=self.SMALL_FONT)
+            number_btn = Label(song_frame, width=3, text=str(song['number']) + '.', font=SMALL_FONT)
+            name_btn = Label(song_frame, width=max_name_length, text=shortened_name, padx=10, anchor=W, font=SMALL_FONT)
+            artist_btn = Label(song_frame, width=max_artist_length + 5, text=shortened_artist, padx=10, anchor=W, font=SMALL_FONT)
             youtube_btn = Label(song_frame, image=self.images['youtube'])
             # Add data (dict key) and index (song i) to buttons.
             name_btn.data = 'song_uri'
@@ -247,7 +367,7 @@ class TopSongs:
     
     @staticmethod
     def open_developer_github(event):
-        """Open Caleb Webster's Github page."""
+        """Open developer's Github page."""
         button = event.widget
         x, y = event.x, event.y
         # Check if mouse is on button
@@ -276,10 +396,10 @@ class TopSongs:
         # By finding the sign of event.delta, the
         # program can scroll the opposite direction.
         sign = event.delta // abs(event.delta)
-        canvas.yview_scroll(-sign * self.SCROLL_SPEED, 'units')
+        canvas.yview_scroll(-sign * SCROLL_SPEED, 'units')
     
     def number_btn_release(self, event):
-        """LMB release event for song button."""
+        """Open Billboard song chart upon releasing song number button."""
         button = event.widget
         x, y = event.x, event.y
         # Check if mouse is on button
@@ -287,7 +407,12 @@ class TopSongs:
             self.open_song_chart(button)
     
     def song_btn_release(self, event):
-        """LMB release event for song button."""
+        """
+        Start song playback upon releasing song name button.
+        
+        Playback will start in currently running Spotify player.
+        If both web and app players are running, app is preferred.
+        """
         button = event.widget
         x, y = event.x, event.y
         # Check if mouse is on button
@@ -295,7 +420,7 @@ class TopSongs:
             self.play_song(button)
     
     def artist_btn_release(self, event):
-        """LMB release event for artist button."""
+        """Open artist in currently open player upon releasing artist button."""
         button = event.widget
         x, y = event.x, event.y
         # Check if mouse is on button
@@ -303,7 +428,7 @@ class TopSongs:
             self.open_artist(button)
     
     def yt_btn_release(self, event):
-        """LMB release event for youtube button."""
+        """Open song's music video upon releasing youtube button."""
         button = event.widget
         x, y = event.x, event.y
         # Check if mouse is on button
@@ -311,38 +436,57 @@ class TopSongs:
             self.open_music_video(button)
     
     def button_hover(self, event):
-        """Update hover_label with message."""
+        """Upon hovering over a widget, update status label with widget's message."""
         button = event.widget
         hover_label = self.widgets['hover_label']
         hover_label.config(text=button.message)
     
     def button_leave(self, event):
-        """Remove text from hover_label."""
+        """Upon leaving a widget, clear status label."""
         assert event
         hover_label = self.widgets['hover_label']
         hover_label.config(text='')
     
     def open_song_chart(self, button):
         """
-        Get song's number from the button that was pressed,
-        and open www.billboard.com/charts/hot-100 with that
-        song selected.
+        Open Billboard chart with button's song selected.
+        
         :param button: button that was pressed.
+        
+        Song buttons store their song's index, which is used to find the correct song.
         """
         song = self.songs[button.x]
         song_number = song['number']
         webbrowser.open(f'https://www.billboard.com/charts/hot-100?rank={song_number}')
     
-    def get_spotipy_data(self, song):
+    def get_song_data(self, song):
+        """
+        Get a song's track and artist URIs from Spotify's API via spotipy.
+        
+        :param dict song: song data dictionary
+        :returns: song URI, artist URI
+        :rtype: str, str
+        
+        NOTE: Artist URI returned is the first artist listed (TopSongs can
+        ony open one artist at this time).
+        """
         song_name = song['name']
         artist = song['artist']
         real_artist = self.get_real_artist(artist)
         # Send request to Spotify's API and sift through dict to find desired data.
         result = self.sp_api.search(q=f'{song_name} {real_artist}', type='track', limit=1)
-        song['uri'] = result['tracks']['items'][0]['uri']
-        song['artist_uri'] = result['tracks']['items'][0]['artists'][0]['uri']  # First listed artist
+        uri = result['tracks']['items'][0]['uri']
+        artist_uri = result['tracks']['items'][0]['artists'][0]['uri']  # First listed artist
+        return uri, artist_uri
     
     def spotify_launchers_are_running(self):
+        """
+        Check whether Spotify app or web players (or both) are running.
+        
+        :return: tuple (bool, bool) for app, web player running
+        
+        This function uses the socket module to get your PC's name.
+        """
         app = False
         web = False
         pc_name = socket.gethostname()
@@ -357,11 +501,13 @@ class TopSongs:
     
     def open_artist(self, button):
         """
-        If a artist's URI is already stored, open it
-        in the browser, desktop app, or both.
-        If not, search for the song's URIs using spotipy
-        and open it.
+        Open an artist in the currently open Spotify player.
+        
         :param button: button that was pressed
+        
+        If a artist's URI is already stored, open it in the browser,
+        desktop app, or both. If not, get and store song's data, then
+        open artist's URI.
         """
         # Button stores data key and song index.
         i = button.index
@@ -370,7 +516,7 @@ class TopSongs:
         if 'artist_uri' in song:
             uri = song['artist_uri']
         else:
-            self.get_spotipy_data(song)
+            song['uri'], song['artist_uri'] = self.get_song_data(song)
             uri = self.songs[i]['artist_uri']
         
         app, web = self.spotify_launchers_are_running()
@@ -383,10 +529,12 @@ class TopSongs:
         
     def play_song(self, button):
         """
-        If a song's URI is already stored, play it.
-        If not, search for the song's URI using spotipy
-        and play it in the first running launcher.
+        Play a song in the currently open Spotify player.
+        
         :param button: button that was pressed
+        
+        If a song's URI is already stored, play it. get and store song's
+        data, then play song's URI.
         """
         # Button stores data key and song index.
         i = button.index
@@ -395,7 +543,7 @@ class TopSongs:
         if 'uri' in song:
             uri = song['uri']
         else:
-            self.get_spotipy_data(song)
+            song['uri'], song['artist_uri'] = self.get_song_data(song)
             uri = self.songs[i]['uri']
         
         devices = self.sp_api.devices()['devices']
@@ -407,9 +555,13 @@ class TopSongs:
     
     def open_music_video(self, button):
         """
-        If a song's music video url has already been stored, open it.
-        If not, search for the song id and build and open the url.
+        Open a song's music video on YouTube in the default browser.
+        
         :param button: button that was pressed
+        
+        If a song's music video url is already stored, open it. If not, search
+        for the song on www.youtube.com, get and store the first video result,
+        then open the music video.
         """
         # Button stores data key and song index.
         key = button.data
@@ -438,7 +590,7 @@ class TopSongs:
         return artist
     
     def run(self):
-        """Start app."""
+        """Start TopSongs app."""
         self.root.mainloop()
 
 
