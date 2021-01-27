@@ -10,4 +10,4 @@ Resources:
     up_arrow.png
     youtube.png
 """
-from top_songs.main import TopSongs
+from top_songs.main import TopSongsApp

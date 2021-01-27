@@ -34,7 +34,7 @@ SCROLL_SPEED = 1
 CREDENTIALS_FILE = 'credentials.txt'
 
 
-class TopSongs:
+class TopSongsApp:
     """
     A class to store methods for the Top Songs Application.
     
@@ -141,8 +141,8 @@ class TopSongs:
         self.root.title('Top Songs')
         self.root.resizable(False, False)
         self.images = {
-            'youtube': ImageTk.PhotoImage(Img.open('top_songs/youtube.png')),
-            'up_arrow': ImageTk.PhotoImage(Img.open('top_songs/up_arrow.png')),
+            'youtube': ImageTk.PhotoImage(Img.open('youtube.png')),
+            'up_arrow': ImageTk.PhotoImage(Img.open('up_arrow.png')),
         }
         self.widgets = {}
         self.create_ui()
@@ -595,4 +595,4 @@ class TopSongs:
 
 
 if __name__ == '__main__':
-    TopSongs().run()
+    TopSongsApp().run()

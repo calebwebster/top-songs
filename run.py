@@ -1,6 +1,8 @@
 """Run Top Songs app."""
 
-from top_songs import TopSongs
+from top_songs import TopSongsApp
+import os
 
 if __name__ == '__main__':
-    TopSongs().run()
+    os.chdir('top_songs')
+    TopSongsApp().run()
