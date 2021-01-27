@@ -124,6 +124,7 @@ class TopSongsApp:
         that TopSongs can only start/stop playback, see what you're playing, and what device you're playing
         on.
         """
+        os.chdir('top_songs')
         scope = 'user-read-currently-playing user-modify-playback-state user-read-playback-state'
         if client_id and client_secret and redirect_uri:
             cid, secret, uri = client_id, client_secret, redirect_uri
