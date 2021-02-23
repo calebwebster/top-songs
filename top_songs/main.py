@@ -141,9 +141,10 @@ class TopSongsApp:
         self.root = Tk()
         self.root.title('Top Songs')
         self.root.resizable(False, False)
+        self.root.iconbitmap("top_songs/icon.ico")
         self.images = {
-            'youtube': ImageTk.PhotoImage(Img.open('youtube.png')),
-            'up_arrow': ImageTk.PhotoImage(Img.open('up_arrow.png')),
+            'youtube': ImageTk.PhotoImage(Img.open('top_songs/youtube.png')),
+            'up_arrow': ImageTk.PhotoImage(Img.open('top_songs/up_arrow.png')),
         }
         self.widgets = {}
         self.create_ui()
@@ -287,6 +288,7 @@ class TopSongsApp:
         middle_frame_inner.bind('<MouseWheel>', self.scroll)
         scrollbar.bind('<MouseWheel>', self.scroll)
         canvas.create_window((0, 0), window=middle_frame_inner, anchor=N + W)
+        canvas.yview("moveto", 0)
         
         middle_frame_outer.grid(row=1, column=0, padx=5, pady=5, sticky=W + E)
         canvas.pack(side=LEFT, fill=BOTH, expand=True)
