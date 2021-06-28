@@ -457,7 +457,7 @@ class TopSongsApp:
         
         Song buttons store their song's index, which is used to find the correct song.
         """
-        song = self.songs[button.x]
+        song = self.songs[button.index]
         song_number = song['number']
         webbrowser.open(f'https://www.billboard.com/charts/hot-100?rank={song_number}')
     
