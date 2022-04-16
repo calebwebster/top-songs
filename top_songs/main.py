@@ -206,9 +206,13 @@ class TopSongsApp:
         # Parse HTML.
         soup = BeautifulSoup(html, 'html.parser')
         songs = []
-        for number, song in enumerate(soup.find_all('li', class_='chart-list__element')[:n], 1):
-            name = song.find('span', class_='chart-element__information__song').text
-            artist = song.find('span', class_='chart-element__information__artist').text.replace('Featuring', 'ft.').replace(' x ', ', ').replace(' & ', ', ').replace(' X ', ', ')
+        for number, song in enumerate(soup.find_all('div', class_='o-chart-results-list-row-container', limit=n), 1):
+            # print(song)
+            name_element = song.find('h3', class_='c-title')
+            name = name_element.text.strip()
+            # print(name)
+            artist = name_element.next_sibling.next_sibling.text.strip().replace('Featuring', 'ft.').replace(' x ', ', ').replace(' & ', ', ').replace(' X ', ', ')
+            # print(artist)
             songs.append({'number': number, 'name': name, 'artist': artist})
         return songs
     
